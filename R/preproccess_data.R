@@ -51,7 +51,7 @@ preproccess_data<-function(metadata,
 
 
 	if (biomarker_type =="baseline"){
-		baseline_feature_table  <- baseline_feature_table |> dplyr::rename_with(~ paste0(.x, baseline_suffix),dplyr::all_of(biomarkers))
+		baseline_feature_table  <-  baseline_feature_table |>  dplyr::rename_with(~ paste0(.x, baseline_suffix),dplyr::all_of(biomarkers))
 		data=dplyr::left_join(metadata_format,baseline_feature_table,by=id_col)
 			   }
 	if (biomarker_type =="time_varying") {
