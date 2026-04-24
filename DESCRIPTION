@@ -1,0 +1,21 @@
+Package: survOmicsPkg
+Title: Survival and Biomarker Analysis for Omics data
+Version: 0.0.0.9000
+Authors@R: 
+    person("Lingdi", "Zhang", , "lingdihumboldt@gmail.com", role = c("aut", "cre"))
+Description: Tools for preprocessing longitudinal Omics biomarker data and fitting
+    Cox survival models for baseline and time-varying biomarker analyses.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
+Imports: 
+    dplyr,
+    rlang,
+    survival,
+    stringr,
+    data.table,
+    stats
+Suggests: 
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
