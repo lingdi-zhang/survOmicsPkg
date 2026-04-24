@@ -8,11 +8,6 @@ knitr::opts_chunk$set(collapse = TRUE,
   comment = "#>")
 ```
 
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
 
 survOmicsPkg provides tools for preparing longitudinal data for survival analysis. It supports construction of metadata for baseline biomarker and time varying biomarker analyses and flexible survival analyses on omics datasets. 
 
@@ -20,9 +15,9 @@ Install the package from Github:
 
 ```{r}
 
-install.packages("remotes")
+#install.packages("remotes")
 library("remotes")
-remotes::install_github("yourusername/survOmicsPkg")
+remotes::install_github("lingdi-zhang/survOmicsPkg")
 
 ```
 Overview
@@ -34,10 +29,7 @@ survival or time-to-event analysis
 biomarker discovery pipelines
 reproducible preprocessing of omics or clinical datasets
 
-## Including Plots
 
-You can also embed plots, for example:
-Example
 Load required packages:
 ```{r }
 library(survOmicsPkg)
@@ -51,9 +43,7 @@ The package expects a long-format metadata dataset where each row represents one
 toy_metadata <- data.frame(
   id = c(1,1,1,2,2,3,3),
   time = c(0,2,6,0,2,0,2),
-  event = c(0,0,1,0,1,0,0),
-  
-)
+  event = c(0,0,1,0,1,0,0))
 toy_metadata
 ```
 Required columns for metadata
@@ -73,7 +63,7 @@ baseline_biomarkers<-data.frame(
 )
 baseline_biomarkers
 
-biomarkers=c(biomarker1,biomarker2)
+biomarkers=c("biomarker1","biomarker2")
 biomarkers
 
 ```

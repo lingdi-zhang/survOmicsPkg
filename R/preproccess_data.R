@@ -51,23 +51,23 @@ preproccess_data<-function(metadata,
 
 
 	if (biomarker_type =="baseline"){
-		baseline_feature_table  <- baseline_feature_table %>% dplyr::rename_with(~ paste0(.x, baseline_suffix),dplyr::all_of(biomarkers))
+		baseline_feature_table  <- baseline_feature_table |> dplyr::rename_with(~ paste0(.x, baseline_suffix),dplyr::all_of(biomarkers))
 		data=dplyr::left_join(metadata_format,baseline_feature_table,by=id_col)
 			   }
 	if (biomarker_type =="time_varying") {
-		time_varying_feature_table  <- time_varying_feature_table %>% dplyr::rename_with(~ paste0(.x, tv_suffix),dplyr::all_of(biomarkers))
-		time_varying_feature_table <- time_varying_feature_table %>% dplyr::rename(!!start_col := !!time_col)
+		time_varying_feature_table  <- time_varying_feature_table |> dplyr::rename_with(~ paste0(.x, tv_suffix),dplyr::all_of(biomarkers))
+		time_varying_feature_table <- time_varying_feature_table |>  dplyr::rename(!!start_col := !!time_col)
 		keys=c(id_col,start_col)
 		data=dplyr::left_join(metadata_format,time_varying_feature_table,by=keys)
 	}
 	if (biomarker_type =="baseline_change") {
-		baseline_feature_table  <- baseline_feature_table %>% dplyr::rename_with(~ paste0(.x, baseline_suffix),dplyr::all_of(biomarkers))
-#                baseline_feature_table <- baseline_feature_table %>% dplyr::rename(!!start_col := !!time_col)
-                time_varying_feature_table  <- time_varying_feature_table %>% dplyr::rename_with(~ paste0(.x, tv_suffix),dplyr::all_of(biomarkers))
-                time_varying_feature_table <- time_varying_feature_table %>% dplyr::rename(!!start_col := !!time_col)
+		baseline_feature_table  <- baseline_feature_table |> dplyr::rename_with(~ paste0(.x, baseline_suffix),dplyr::all_of(biomarkers))
+#                baseline_feature_table <- baseline_feature_table |>  dplyr::rename(!!start_col := !!time_col)
+                time_varying_feature_table  <- time_varying_feature_table |> dplyr::rename_with(~ paste0(.x, tv_suffix),dplyr::all_of(biomarkers))
+                time_varying_feature_table <- time_varying_feature_table |>  dplyr::rename(!!start_col := !!time_col)
 
 		keys=c(id_col,start_col)
-                data=metadata_format  %>% dplyr::left_join(time_varying_feature_table, by = keys) %>%
+                data=metadata_format  |>  dplyr::left_join(time_varying_feature_table, by = keys) |>
     		dplyr::left_join(baseline_feature_table, by = id_col)
 		for (p in biomarkers) {
   			bl_col <- paste0(p, "_bl")
