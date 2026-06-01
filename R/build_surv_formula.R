@@ -7,7 +7,7 @@
 #' @param rhs_terms Right-hand side formula terms.
 #'
 #' @return A formula object.
-#' @export
+
 
 build_surv_formula <- function(event_col,
                                time_col = NULL,

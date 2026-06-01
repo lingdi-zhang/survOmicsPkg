@@ -8,7 +8,7 @@
 #' @param interaction_var Optional interaction variable name.
 #'
 #' @return A list with main_terms, other_terms, and rhs_terms.
-#' @export
+
 
 build_biomarker_terms <- function(biomarker,
                                   biomarker_type = c("baseline", "time_varying", "baseline_change"),

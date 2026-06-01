@@ -1,10 +1,15 @@
 Package: survOmicsPkg
-Title: Survival and Biomarker Analysis for Omics data
-Version: 0.0.0.9000
+Title: Longitudinal Survival Analysis for Omics Biomarker Studies
+Version: 0.1.0
 Authors@R: 
     person("Lingdi", "Zhang", , "lingdihumboldt@gmail.com", role = c("aut", "cre"))
-Description: Tools for preprocessing longitudinal Omics biomarker data and fitting
-    Cox survival models for baseline and time-varying biomarker analyses.
+Description: Provides a framework for survival analysis of longitudinal omics
+  datasets. Supports baseline biomarker analyses, time-varying biomarker
+  models, time-varying coefficient models, and baseline-versus-change
+  decomposition using Cox proportional hazards models. Designed for
+  high-throughput biomarker discovery in transcriptomic, proteomic,
+  metabolomic, microbiome, and other longitudinal molecular studies.
+URL: https://github.com/lingdi-zhang/survOmicsPkg
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)

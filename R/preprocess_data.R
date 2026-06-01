@@ -21,7 +21,7 @@
 #' @export
 
 
-preproccess_data<-function(metadata,
+preprocess_data<-function(metadata,
 			   biomarkers,
 			   id_col = "subject",
 			   time_col="Visit",

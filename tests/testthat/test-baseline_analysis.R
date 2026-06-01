@@ -1,5 +1,7 @@
 test_that("test baseline analysis", {
 	  
+
+
    metadata <- data.frame(
     subject = c(1,1,2,2),
     time = c(0, 6, 0, 6),
@@ -10,7 +12,7 @@ test_that("test baseline analysis", {
 
    biomarkers=c("biomarker")
     
-  out <- preproccess_data(metadata,biomarkers=biomarkers,event_col="event",time_col="time",baseline_feature_table=baseline_df,biomarker_type="baseline")
+  out <- preprocess_data(metadata,biomarkers=biomarkers,event_col="event",time_col="time",baseline_feature_table=baseline_df,biomarker_type="baseline")
 
   expect_equal(nrow(out), 2)
   expect_true(all(out$event %in% c(0, 1)))

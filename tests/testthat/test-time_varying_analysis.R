@@ -1,4 +1,4 @@
-test_that("test baseline analysis", {
+test_that("test time varying analysis", {
 
    		  
   metadata <- data.frame(
@@ -14,7 +14,7 @@ test_that("test baseline analysis", {
    biomarkers=c("biomarker")
 
 
- out <- preproccess_data(metadata,biomarkers=biomarkers,time_col="time",event_col='event',time_varying_feature_table=time_varying_df,biomarker_type="time_varying")
+ out <- preprocess_data(metadata,biomarkers=biomarkers,time_col="time",event_col='event',time_varying_feature_table=time_varying_df,biomarker_type="time_varying")
 
   expect_equal(nrow(out), 3)
   expect_true(all(out$event %in% c(0, 1)))

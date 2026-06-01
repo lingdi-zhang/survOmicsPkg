@@ -18,7 +18,7 @@
 #' @param biomarker_type One of "baseline", "time_varying",  or "baseline_change".
 #'
 #' @return A data frame with one row per subject.
-#' @export
+
 
 construct_metadata<-function(metadata,
 			     id_col = "subject",
@@ -41,7 +41,8 @@ construct_metadata<-function(metadata,
                                  max(.data[[time_col]])),
                                  .groups = "drop")
 	}
-   
+
+     	event_interval <- NULL	
         if (biomarker_type %in% c("time_varying","baseline_change")) {
                 metadata_format <- 
                 dplyr::arrange(metadata,.data[[id_col]], .data[[time_col]]) |>
@@ -54,7 +55,7 @@ construct_metadata<-function(metadata,
                 dplyr::filter(!is.na(.data[[stop_col]])) |>
                 dplyr::mutate(!!event_col := as.integer(dplyr::coalesce(event_interval, 0L))) |>
 		dplyr::ungroup() |>
-                dplyr::select(all_of(id_col), all_of(start_col), all_of(stop_col), all_of(event_col))}
+                dplyr::select(dplyr::all_of(id_col), dplyr::all_of(start_col), dplyr::all_of(stop_col), dplyr::all_of(event_col))}
 
 	metadata_format
 }
