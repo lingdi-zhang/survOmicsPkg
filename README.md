@@ -1,117 +1,156 @@
 survOmicsPkg
 ================
 
-survOmicsPkg provides tools for preparing longitudinal data for survival
-analysis. It supports construction of metadata for baseline biomarker
-and time varying biomarker analyses and flexible survival analyses on
-omics datasets.
+A reproducible framework for biomarker discovery in longitudinal omics
+studies.
 
-Install the package from Github:
+survOmicsPkg is an R package designed to evaluate associations between
+molecular features and time-to-event outcomes in longitudinal studies.
+The package implements multiple survival modeling strategies commonly
+used in translational research, enabling investigators to distinguish
+prognostic biomarkers, dynamic disease processes, and time-dependent
+molecular effects within a unified analytical framework.
+
+The framework was developed to support high-dimensional biomarker
+discovery workflows across transcriptomics, proteomics, metabolomics,
+microbiome, and clinical datasets.
+
+## Scientific Motivation
+
+Longitudinal biomedical studies frequently collect repeated molecular
+measurements together with clinical outcomes.
+
+While standard survival analysis tools can fit individual Cox models,
+applying multiple modeling strategies consistently across large
+biomarker panels often requires substantial custom code.
+
+survOmicsPkg was developed to provide a reproducible framework for
+evaluating distinct biological hypotheses, including:
+
+-   Whether baseline biomarker levels predict future outcomes
+-   Whether longitudinal biomarker changes are associated with risk
+-   Whether biomarker effects vary over time
+-   Whether risk is driven by baseline differences or within-subject
+    changes
+
+## Analysis Framework
+
+The package supports four complementary survival modeling strategies
+commonly used in biomarker discovery and translational research:
+
+| Analysis Type            | Biological Question                                               |
+|--------------------------|-------------------------------------------------------------------|
+| Baseline Biomarker       | Do baseline molecular measurements predict future outcomes?       |
+| Time-Varying Biomarker   | Are longitudinal biomarker changes associated with risk?          |
+| Time-Varying Coefficient | Does biomarker importance change over time?                       |
+| Baseline + Change        | Is risk driven by baseline differences or within-subject changes? |
+
+These complementary modeling approaches allow investigators to evaluate
+distinct biological hypotheses that are often overlooked in traditional
+survival analyses. For example, a biomarker may predict risk at baseline
+but not change over time, while another biomarker may exhibit minimal
+baseline differences yet become informative through longitudinal
+changes.
+
+## Workflow
+
+<p align="center">
+<img src="man/figures/Workflow.png" width="850">
+</p>
+
+**Figure 1.** Overview of the survOmicsPkg analytical framework. The
+package supports four complementary survival modeling strategies for
+evaluating baseline, dynamic, time-dependent, and longitudinal biomarker
+effects.
+
+## Example Applications
+
+The analytical framework implemented in survOmicsPkg is applicable to:
+
+-   Blood transcriptomic studies
+-   Proteomic analyses
+-   Metabolomic studies
+-   Microbiome research
+-   Longitudinal immune profiling
+-   Biomarker discovery in translational medicine
+
+The package was designed around common analytical challenges encountered
+in longitudinal multi-omics studies.
+
+# Installation
 
 ``` r
 library("remotes")
 remotes::install_github("lingdi-zhang/survOmicsPkg", force=TRUE)
+#> Using GitHub PAT from the git credential store.
 #> Downloading GitHub repo lingdi-zhang/survOmicsPkg@HEAD
-#> Running `R CMD build`...
-#> * checking for file ‘/private/var/folders/0x/ctzdrfzd3p3b27z358ztmgyc0000gn/T/RtmpOSnCAL/remotes3f3a54418e4c/lingdi-zhang-survOmicsPkg-19f609e/DESCRIPTION’ ... OK
+#> 
+#> ── R CMD build ─────────────────────────────────────────────────────────────────
+#> * checking for file ‘/private/var/folders/0x/ctzdrfzd3p3b27z358ztmgyc0000gn/T/RtmpKyAe8j/remotes6779495dc694/lingdi-zhang-survOmicsPkg-0f264d4/DESCRIPTION’ ... OK
 #> * preparing ‘survOmicsPkg’:
 #> * checking DESCRIPTION meta-information ... OK
+#> * excluding invalid files
+#> Subdirectory 'man' contains invalid file names:
+#>   ‘Workflow.png’
 #> * checking for LF line-endings in source and make files and shell scripts
 #> * checking for empty or unneeded directories
-#> * building ‘survOmicsPkg_0.0.0.9000.tar.gz’
-```
-
-Overview
-
-This package is designed for workflows involving:
-
-longitudinal or repeated-measures data  
-survival or time-to-event analysis  
-reproducible preprocessing of omics or clinical datasets
-
-A typical workflow:
-
-Prepare longitudinal data in long format  
-Construct datasets using preprocess\_data()  
-run run\_multiple\_cox\_flexible() for omics data with multiple
-biomarkers  
-run calculate\_FDR for compute FDR for each effect type (main effect,
-time effect, covariates or interactions term) from the results
-
-Load required packages:
-
-``` r
+#> * building ‘survOmicsPkg_0.1.0.tar.gz’
 library(survOmicsPkg)
 ```
 
-Input Metadata Format
+## Data Requirements
 
-The package expects a long-format metadata dataset where each row
-represents one subject at one time point.
+survOmicsPkg requires a longitudinal metadata table and a biomarker
+dataset linked by a common subject identifier.
+
+### Metadata
+
+| Column | Description                               |
+|--------|-------------------------------------------|
+| id     | Subject identifier                        |
+| time   | Follow-up time                            |
+| event  | Event indicator (0 = censored, 1 = event) |
+
+### Baseline Biomarker Data
+
+| Column     | Description           |
+|------------|-----------------------|
+| id         | Subject identifier    |
+| biomarker1 | Biomarker measurement |
+| biomarker2 | Biomarker measurement |
+| …          | Additional biomarkers |
+
+### Time-Varying Biomarker Data
+
+| id  | time | biomarker1 | biomarker2 |
+|-----|------|------------|------------|
+| 1   | 0    | 5.2        | 3.1        |
+| 1   | 2    | 6.8        | 3.4        |
+| 1   | 4    | 8.5        | 3.5        |
+| 2   | 0    | 4.1        | 2.8        |
+| 2   | 2    | 5.9        | 3.0        |
+| 2   | 4    | 7.2        | 3.2        |
+
+Each row represents a biomarker measurement collected at a specific
+follow-up time for a given subject.
+
+### Example Datasets
 
 ``` r
-toy_metadata <- data.frame(
-  id = c(1,1,1,2,2,3,3),
-  time = c(0,2,6,0,2,0,2),
-  event = c(0,0,1,0,1,0,0))
-toy_metadata
-#>   id time event
-#> 1  1    0     0
-#> 2  1    2     0
-#> 3  1    6     1
-#> 4  2    0     0
-#> 5  2    2     1
-#> 6  3    0     0
-#> 7  3    2     0
+data("toy_metadata")
+data("toy_baseline_biomarkers")
+data("toy_timevarying_biomarkers")
+biomarkers <- c("biomarker1", "biomarker2")
 ```
 
-Required columns for metadata
+## Baseline Biomarker Analysis
 
-id: subject identifier  
-time: time variable (numeric)  
-event: event indicator (0/1)
-
-For baseline biomarker analysis:
-
-The package expects a baseline biomarker dataframe and a vector of
-biomarker feature names
+Tests whether baseline biomarker levels are associated with future event
+risk.
 
 ``` r
-baseline_biomarkers<-data.frame(
-  id=c(1,2,3),
-  biomarker1=c(10.2,8.5,7.2),
-  biomarker2=c(5.1,4.8,6.5)
-)
-baseline_biomarkers
-#>   id biomarker1 biomarker2
-#> 1  1       10.2        5.1
-#> 2  2        8.5        4.8
-#> 3  3        7.2        6.5
-
-biomarkers=c("biomarker1","biomarker2")
-biomarkers
-#> [1] "biomarker1" "biomarker2"
-```
-
-Required columns for baseline biomarker dataset
-
-id: subject identifier  
-feature columns: biomarkers, genes, or other measurements
-
-This analysis test for: h(t∣x)=h0(t)exp(βx)  
-β is biomarker effect on log hazard ratio
-
-``` r
-processed_data<-preproccess_data(
-  metadata=toy_metadata,biomarkers=biomarkers,id_col="id",event_col="event",time_col="time",baseline_feature_table=baseline_biomarkers,biomarker_type="baseline")
-
-processed_data
-#> # A tibble: 3 × 5
-#>      id event  time biomarker1_bl biomarker2_bl
-#>   <dbl> <int> <dbl>         <dbl>         <dbl>
-#> 1     1     1     0          10.2           5.1
-#> 2     2     1     0           8.5           4.8
-#> 3     3     0     2           7.2           6.5
+processed_data<-preprocess_data(
+  metadata=toy_metadata,biomarkers=biomarkers,id_col="id",event_col="event",time_col="time",baseline_feature_table=toy_baseline_biomarkers,biomarker_type="baseline")
 
 res<-run_multiple_cox_flexible(processed_data,biomarkers=biomarkers, event_col="event",time_col="time",biomarker_type="baseline")
 
@@ -119,182 +158,255 @@ outcomes=res[[1]]
 terms=res[[2]]
 FDR_res<-calculate_FDR(outcomes,terms)
 
-head(FDR_res)
-#>    biomarker          term       coef        HR    lower95   upper95
-#> 1 biomarker1 biomarker1_bl  0.5906921 1.8052375 0.53885644  6.047775
-#> 2 biomarker2 biomarker2_bl -2.0649225 0.1268281 0.00123326 13.042973
-#>      pvalue                                     formula effect_type
-#> 1 0.3382651 survival::Surv(time, event) ~ biomarker1_bl  main_terms
-#> 2 0.3823791 survival::Surv(time, event) ~ biomarker2_bl  main_terms
-#>         FDR
-#> 1 0.3823791
-#> 2 0.3823791
+FDR_res
+#>    biomarker          term       coef        HR   lower95  upper95    pvalue
+#> 1 biomarker1 biomarker1_bl  0.2110877 1.2350207 0.6096223 2.502002 0.5578696
+#> 2 biomarker2 biomarker2_bl -0.3706716 0.6902706 0.2268980 2.099946 0.5137642
+#>                                       formula effect_type       FDR
+#> 1 survival::Surv(time, event) ~ biomarker1_bl  main_terms 0.5578696
+#> 2 survival::Surv(time, event) ~ biomarker2_bl  main_terms 0.5578696
 ```
 
-For baseline analysis with time varying outcomes:
+**Interpretation**
 
-set time\_varying\_coefficients=TRUE and adjust center\_time if needed
+-   HR &gt; 1: Higher baseline biomarker levels are associated with an
+    increased risk of the outcome.
+-   HR &lt; 1: Higher baseline biomarker levels are associated with a
+    decreased risk of the outcome.
 
-This analysis test for: h(t∣x)=h0(t)exp(β1x+β2x⋅t)  
-β1 is biomarker effect on log hazard ratio at t=0  
-β2 is the interaction effect: how the main effect change over time
+Typical applications include:
 
-This is an example, with the toy data, the interaction term won’t
-converge.
+-   Prognostic biomarker discovery
+-   Patient risk stratification
+-   Baseline disease prediction
+
+## Time-Varying Biomarker Analysis
+
+Tests whether biomarker values measured during follow-up are associated
+with event risk. This model treats biomarker measurements as
+time-dependent covariates and updates risk estimates as biomarker values
+change over follow-up.
 
 ``` r
+processed_data<-preprocess_data(
+  metadata=toy_metadata,biomarkers=biomarkers,id_col="id",event_col="event",time_col="time",start_col= 'start', stop_col='stop',time_varying_feature_table=toy_timevarying_biomarkers,biomarker_type="time_varying")
+
+res<-run_multiple_cox_flexible(processed_data,biomarkers=biomarkers, event_col="event",start_col= 'start', stop_col='stop',biomarker_type="time_varying")
+
+outcomes=res[[1]]
+terms=res[[2]]
+FDR_res<-calculate_FDR(outcomes,terms)
+
+FDR_res
+#>    biomarker          term       coef        HR   lower95  upper95    pvalue
+#> 1 biomarker1 biomarker1_tv  0.5676601 1.7641344 0.4039194 7.704929 0.4504231
+#> 2 biomarker2 biomarker2_tv -0.7563076 0.4693964 0.0678334 3.248149 0.4434946
+#>                                              formula effect_type       FDR
+#> 1 survival::Surv(start, stop, event) ~ biomarker1_tv  main_terms 0.4504231
+#> 2 survival::Surv(start, stop, event) ~ biomarker2_tv  main_terms 0.4504231
+```
+
+**Interpretation**
+
+-   HR &gt; 1: Higher biomarker levels are associated with an increased
+    risk of the outcome.
+-   HR &lt; 1: Higher biomarker levels are associated with a decreased
+    risk of the outcome.
+
+This approach incorporates longitudinal biomarker trajectories directly
+into the survival model.
+
+Typical applications include:
+
+-   Dynamic disease monitoring
+-   Longitudinal immune profiling
+-   Treatment response biomarkers
+
+## Time-Varying Coefficient Analysis
+
+Tests whether biomarker effects change over time.
+
+This model evaluates interactions between biomarker levels and follow-up
+time.
+
+``` r
+processed_data<-preprocess_data(
+  metadata=toy_metadata,biomarkers=biomarkers,id_col="id",event_col="event",time_col="time",baseline_feature_table=toy_baseline_biomarkers,biomarker_type="baseline")
+
 res<-run_multiple_cox_flexible(processed_data,biomarkers=biomarkers, event_col="event",time_col="time",biomarker_type="baseline",time_varying_coefficients=TRUE,center_time=0)
 
 outcomes=res[[1]]
 terms=res[[2]]
 FDR_res<-calculate_FDR(outcomes,terms)
 
-head(FDR_res)
-#>       biomarker              term       coef        HR    lower95
-#> 1 biomarker1_bl     biomarker1_bl  0.5906921 1.8052375 0.53885644
-#> 2 biomarker2_bl     biomarker2_bl -2.0649225 0.1268281 0.00123326
-#> 3 biomarker1_bl tt(biomarker1_bl)         NA        NA         NA
-#> 4 biomarker2_bl tt(biomarker2_bl)         NA        NA         NA
-#>     upper95    pvalue
-#> 1  6.047775 0.3382651
-#> 2 13.042973 0.3823791
-#> 3        NA        NA
-#> 4        NA        NA
-#>                                                           formula
-#> 1 survival::Surv(time, event) ~ biomarker1_bl + tt(biomarker1_bl)
-#> 2 survival::Surv(time, event) ~ biomarker2_bl + tt(biomarker2_bl)
-#> 3 survival::Surv(time, event) ~ biomarker1_bl + tt(biomarker1_bl)
-#> 4 survival::Surv(time, event) ~ biomarker2_bl + tt(biomarker2_bl)
+FDR_res
+#>       biomarker              term       coef        HR   lower95  upper95
+#> 1 biomarker1_bl     biomarker1_bl  0.2110877 1.2350207 0.6096223 2.502002
+#> 2 biomarker2_bl     biomarker2_bl -0.3706716 0.6902706 0.2268980 2.099946
+#> 3 biomarker1_bl tt(biomarker1_bl)         NA        NA        NA       NA
+#> 4 biomarker2_bl tt(biomarker2_bl)         NA        NA        NA       NA
+#>      pvalue                                                         formula
+#> 1 0.5578696 survival::Surv(time, event) ~ biomarker1_bl + tt(biomarker1_bl)
+#> 2 0.5137642 survival::Surv(time, event) ~ biomarker2_bl + tt(biomarker2_bl)
+#> 3        NA survival::Surv(time, event) ~ biomarker1_bl + tt(biomarker1_bl)
+#> 4        NA survival::Surv(time, event) ~ biomarker2_bl + tt(biomarker2_bl)
 #>   effect_type       FDR
-#> 1  main_terms 0.3823791
-#> 2  main_terms 0.3823791
+#> 1  main_terms 0.5578696
+#> 2  main_terms 0.5578696
 #> 3   covariate        NA
 #> 4   covariate        NA
 ```
 
-For time varying biomarker analysis: The package expects a time varying
-biomarker dataframe and a vector of biomarker feature names
+**Interpretation**
 
-This analysis tests for: h(t∣x(t))=h0(t)exp(β⋅x(t))  
-β is biomarker effect on log hazard ratio, while the biomarker values
-changes over time
+-   biomarker\*\_bl: Tests the association between baseline biomarker
+    levels and the outcome.
+-   tt(biomarker\*\_bl): Tests whether the association between baseline
+    biomarker levels and the outcome changes over time.
 
-``` r
-time_varying_biomarkers<-data.frame(
-  id = c(1,1,1,2,2,3,3),
-  time = c(0,2,6,0,2,0,2),
-  biomarker1 = c(10.2, 11.4, 13.1, 8.5, 9.7, 7.2, 7.8),
-  biomarker2 = c(5.1, 5.5, 6.2, 4.8, 5.0, 6.5, 6.3)
-)
+For biomarker\*\_bl:
 
-time_varying_biomarkers
-#>   id time biomarker1 biomarker2
-#> 1  1    0       10.2        5.1
-#> 2  1    2       11.4        5.5
-#> 3  1    6       13.1        6.2
-#> 4  2    0        8.5        4.8
-#> 5  2    2        9.7        5.0
-#> 6  3    0        7.2        6.5
-#> 7  3    2        7.8        6.3
-biomarkers=c("biomarker1","biomarker2")
-biomarkers
-#> [1] "biomarker1" "biomarker2"
-```
+-   HR &gt; 1: Higher baseline biomarker levels are associated with an
+    increased risk of the outcome.
+-   HR &lt; 1: Higher baseline biomarker levels are associated with a
+    decreased risk of the outcome.
 
-Required columns for time varying biomarker dataset
+For tt(biomarker\*\_bl):
 
-id: subject identifier  
-time: time variable (numeric)  
-feature columns: biomarkers, genes, or other measurements
+-   HR &gt; 1: The effect of the baseline biomarker on outcome risk
+    increases over time.
+-   HR &lt; 1: The effect of the baseline biomarker on outcome risk
+    decreases over time.
 
-``` r
-processed_data<-preproccess_data(
-  metadata=toy_metadata,biomarkers=biomarkers,id_col="id",event_col="event",time_col="time",start_col= 'start', stop_col='stop',time_varying_feature_table=time_varying_biomarkers,biomarker_type="time_varying")
+**Note:** Time-varying coefficient models typically require larger
+sample sizes and more events than standard Cox models. The toy dataset
+is provided for demonstration purposes only, and some interaction terms
+may not be estimable.
 
-processed_data
-#> # A tibble: 4 × 6
-#>      id start  stop event biomarker1_tv biomarker2_tv
-#>   <dbl> <dbl> <dbl> <int>         <dbl>         <dbl>
-#> 1     1     0     2     0          10.2           5.1
-#> 2     1     2     6     1          11.4           5.5
-#> 3     2     0     2     1           8.5           4.8
-#> 4     3     0     2     0           7.2           6.5
+Typical applications include:
 
-res<-run_multiple_cox_flexible(processed_data,biomarkers=biomarkers, event_col="event",start_col= 'start', stop_col='stop',biomarker_type="time_varying")
-#> Warning in agreg.fit(X, Y, istrat, offset, init, control, weights =
-#> weights, : Ran out of iterations and did not converge
+-   Early versus late disease effects
+-   Treatment adaptation studies
+-   Temporal changes in biomarker importance
 
-outcomes=res[[1]]
-terms=res[[2]]
-FDR_res<-calculate_FDR(outcomes,terms)
+## Baseline + Change Model
 
-head(FDR_res)
-#>    biomarker          term         coef           HR   lower95
-#> 1 biomarker1 biomarker1_tv  -0.08942133 9.144602e-01 0.1814907
-#> 2 biomarker2 biomarker2_tv -62.68041999 6.001219e-28 0.0000000
-#>    upper95    pvalue
-#> 1 4.607605 0.9136952
-#> 2      Inf 0.9987614
-#>                                              formula effect_type
-#> 1 survival::Surv(start, stop, event) ~ biomarker1_tv  main_terms
-#> 2 survival::Surv(start, stop, event) ~ biomarker2_tv  main_terms
-#>         FDR
-#> 1 0.9987614
-#> 2 0.9987614
-```
+Separates:
 
-For analysis consider both baseline biomarker effect and within-subject
-change from baseline:
+-   Between-subject effects (baseline differences)
+-   Within-subject effects (longitudinal changes)
 
-This analysis tests for: h(t)=h0(t)exp(β1x0+β2Δx(t)) β1 represents the
-baseline biomarker effect on log hazard  
-β2 represents the effect of within-subject change from baseline on log
-hazard
+This decomposition helps determine whether event risk is driven by:
 
-This is an exmaple, with the toy dataset, the β2 term won’t converge.
+1.  Persistent baseline differences between individuals
+2.  Dynamic biomarker changes within individuals over time
+
+This framework is particularly useful for repeated-measurement studies.
 
 ``` r
-processed_data<-preproccess_data(
-  metadata=toy_metadata,biomarkers=biomarkers,id_col="id",event_col="event",time_col="time",start_col= 'start', stop_col='stop',baseline_feature_table=baseline_biomarkers,time_varying_feature_table=time_varying_biomarkers,biomarker_type="baseline_change")
+#Both the baseline biomarkers and time varying biomarkers are required in this model
+processed_data<-preprocess_data(
+  metadata=toy_metadata,biomarkers=biomarkers,id_col="id",event_col="event",time_col="time",start_col= 'start', stop_col='stop',baseline_feature_table=toy_baseline_biomarkers,time_varying_feature_table=toy_timevarying_biomarkers,biomarker_type="baseline_change")
 
-processed_data
-#> # A tibble: 4 × 10
-#>      id start  stop event biomarker1_tv biomarker2_tv biomarker1_bl
-#>   <dbl> <dbl> <dbl> <int>         <dbl>         <dbl>         <dbl>
-#> 1     1     0     2     0          10.2           5.1          10.2
-#> 2     1     2     6     1          11.4           5.5          10.2
-#> 3     2     0     2     1           8.5           4.8           8.5
-#> 4     3     0     2     0           7.2           6.5           7.2
-#> # ℹ 3 more variables: biomarker2_bl <dbl>, biomarker1_delta <dbl>,
-#> #   biomarker2_delta <dbl>
 
 res<-run_multiple_cox_flexible(processed_data,biomarkers=biomarkers, event_col="event",start_col= 'start', stop_col='stop',biomarker_type="baseline_change")
-#> Warning in agreg.fit(X, Y, istrat, offset, init, control, weights =
-#> weights, : Ran out of iterations and did not converge
 
 outcomes=res[[1]]
 terms=res[[2]]
 FDR_res<-calculate_FDR(outcomes,terms)
 
-head(FDR_res)
-#>    biomarker             term         coef           HR   lower95
-#> 1 biomarker1    biomarker1_bl  -0.08942133 9.144602e-01 0.1814907
-#> 2 biomarker2    biomarker2_bl -52.68039476 1.321890e-23 0.0000000
-#> 3 biomarker1 biomarker1_delta           NA           NA        NA
-#> 4 biomarker2 biomarker2_delta           NA           NA        NA
-#>    upper95    pvalue
-#> 1 4.607605 0.9136952
-#> 2      Inf 0.9953346
-#> 3       NA        NA
-#> 4       NA        NA
+FDR_res
+#>    biomarker             term        coef        HR    lower95   upper95
+#> 1 biomarker1    biomarker1_bl  0.51812371 1.6788746 0.37749434  7.466655
+#> 2 biomarker2    biomarker2_bl -0.50376179 0.6042533 0.06744550  5.413587
+#> 3 biomarker1 biomarker1_delta  0.30259985 1.3533728 0.15544544 11.783028
+#> 4 biomarker2 biomarker2_delta -0.04383398 0.9571128 0.08722177 10.502711
+#>      pvalue
+#> 1 0.4961974
+#> 2 0.6524961
+#> 3 0.7840377
+#> 4 0.9713901
 #>                                                                 formula
 #> 1 survival::Surv(start, stop, event) ~ biomarker1_bl + biomarker1_delta
 #> 2 survival::Surv(start, stop, event) ~ biomarker2_bl + biomarker2_delta
 #> 3 survival::Surv(start, stop, event) ~ biomarker1_bl + biomarker1_delta
 #> 4 survival::Surv(start, stop, event) ~ biomarker2_bl + biomarker2_delta
 #>   effect_type       FDR
-#> 1  main_terms 0.9953346
-#> 2  main_terms 0.9953346
-#> 3  main_terms        NA
-#> 4  main_terms        NA
+#> 1  main_terms 0.6524961
+#> 2  main_terms 0.6524961
+#> 3  main_terms 0.9713901
+#> 4  main_terms 0.9713901
 ```
+
+**Interpretation**
+
+-   biomarker\*\_bl: Tests the association between baseline biomarker
+    levels and the outcome.
+
+-   biomarker\*\_delta: Tests the association between within-subject
+    changes in biomarker levels and the outcome.
+
+For biomarker\*\_bl:
+
+-   HR &gt; 1: Higher baseline biomarker levels are associated with an
+    increased risk of the outcome.
+-   HR &lt; 1: Higher baseline biomarker levels are associated with a
+    decreased risk of the outcome.
+
+For biomarker\*\_delta:
+
+-   HR &gt; 1: Larger increases (or smaller decreases) in biomarker
+    levels are associated with an increased risk of the outcome.
+-   HR &lt; 1: Larger increases (or smaller decreases) in biomarker
+    levels are associated with a decreased risk of the outcome.
+
+## Technical Design
+
+The package was designed to provide a consistent interface for
+evaluating multiple biological hypotheses within a unified survival
+modeling framework.
+
+Key design principles include:
+
+-   Modular implementation of multiple survival modeling strategies
+-   Consistent handling of longitudinal and time-to-event data
+-   Automated extraction of hazard ratios, confidence intervals, and
+    significance statistics
+-   Support for high-throughput biomarker screening
+-   Reproducible workflows for large-scale omics analyses
+
+## Repository Structure
+
+``` text
+survOmicsPkg/
+├── R/                    # Core package functions
+├── man/                  # Function documentation
+├── tests/                # Unit tests
+├── data/                 # Example datasets
+├── man/figures/          # Workflow and documentation figures
+├── README.Rmd
+├── README.md
+├── DESCRIPTION
+└── NAMESPACE
+```
+
+## Applications in Translational Research
+
+survOmicsPkg was developed to address analytical challenges commonly
+encountered in longitudinal multi-omics studies. By providing a unified
+framework for evaluating baseline, dynamic, and time-dependent biomarker
+effects, the package facilitates reproducible biomarker discovery and
+translational research workflows.
+
+## Methods Implemented
+
+The package currently supports:
+
+-   Cox proportional hazards models
+-   Time-varying covariate Cox models
+-   Time-varying coefficient models
+-   Baseline-versus-change decomposition
+-   Multiple-testing correction using FDR
+
+Future development will focus on joint longitudinal-survival models and
+additional time-to-event methodologies.

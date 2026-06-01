@@ -6,7 +6,6 @@ output: github_document
 knitr::opts_chunk$set(collapse = TRUE,
   comment = "#>")
 ```
-# survOmicsPkg
 
 A reproducible framework for biomarker discovery in longitudinal omics studies.
 
@@ -67,41 +66,54 @@ The package was designed around common analytical challenges encountered in long
 library("remotes")
 remotes::install_github("lingdi-zhang/survOmicsPkg", force=TRUE)
 library(survOmicsPkg)
-
 ```
 
-## Quick Start Example Data
+## Data Requirements
 
-The package includes simulated longitudinal biomarker data demonstrating:
+survOmicsPkg requires a longitudinal metadata table and a biomarker dataset linked by a common subject identifier.
 
-- Repeated biomarker measurements
-- Time-to-event outcomes
-- Multiple biomarker features
+### Metadata
 
-These datasets can be used to reproduce the examples below.
+| Column | Description |
+|----------|-------------|
+| id | Subject identifier |
+| time | Follow-up time |
+| event | Event indicator (0 = censored, 1 = event) |
 
+### Baseline Biomarker Data
+
+| Column | Description |
+|----------|-------------|
+| id | Subject identifier |
+| biomarker1 | Biomarker measurement |
+| biomarker2 | Biomarker measurement |
+| ... | Additional biomarkers |
+
+### Time-Varying Biomarker Data
+
+| id | time | biomarker1 | biomarker2 |
+|----|------|------------|------------|
+| 1 | 0 | 5.2 | 3.1 |
+| 1 | 2 | 6.8 | 3.4 |
+| 1 | 4 | 8.5 | 3.5 |
+| 2 | 0 | 4.1 | 2.8 |
+| 2 | 2 | 5.9 | 3.0 |
+| 2 | 4 | 7.2 | 3.2 |
+
+Each row represents a biomarker measurement collected at a specific follow-up time for a given subject.
+
+### Example Datasets
+
+```{r}
+data("toy_metadata")
+data("toy_baseline_biomarkers")
+data("toy_timevarying_biomarkers")
+biomarkers <- c("biomarker1", "biomarker2")
+```
 
 ## Baseline Biomarker Analysis
 
 Tests whether baseline biomarker levels are associated with future event risk.
-
-```{r}
-
-toy_metadata <- data.frame(
-  id    = c(1,1,1,2,2,3,3,4,4,5),
-  time  = c(0,2,6,0,2,0,2,0,4,0),
-  event = c(0,0,1,0,1,0,0,0,1,0)
-)
-
-toy_baseline_biomarkers <- data.frame(
-  id = c(1,2,3,4,5),
-  biomarker1 = c(10.2,9.8,4.5,11.3,5.0),
-  biomarker2 = c(2.1,2.5,8.5,1.8,7.9)
-)
-
-biomarkers=c("biomarker1","biomarker2")
-
-```
 
 ```{r}
 processed_data<-preprocess_data(
@@ -113,16 +125,16 @@ outcomes=res[[1]]
 terms=res[[2]]
 FDR_res<-calculate_FDR(outcomes,terms)
 
-head(FDR_res)
+FDR_res
 
 ```
 
 **Interpretation**
 
-- HR > 1: higher baseline biomarker levels associated with increased risk
-- HR < 1: higher baseline biomarker levels associated with decreased risk
+- HR > 1: Higher baseline biomarker levels are associated with an increased risk of the outcome.
+- HR < 1: Higher baseline biomarker levels are associated with a decreased risk of the outcome.
 
-Typical applications:
+Typical applications include:
 
 - Prognostic biomarker discovery
 - Patient risk stratification
@@ -132,33 +144,8 @@ Typical applications:
 ## Time-Varying Biomarker Analysis
 
 Tests whether biomarker values measured during follow-up are associated with event risk.
+This model treats biomarker measurements as time-dependent covariates and updates risk estimates as biomarker values change over follow-up.
 
-```{r}
-toy_metadata <- data.frame(
-  id    = c(1,1,1,2,2,3,3,3,4,4),
-  time  = c(0,2,4,0,2,0,2,4,0,2),
-  event = c(0,0,1,0,1,0,0,0,0,0)
-)
-
-toy_timevarying_biomarkers <- data.frame(
-  id = c(1,1,1,2,2,3,3,3,4,4),
-  time = c(0,2,4,0,2,0,2,4,0,2),
-
-  biomarker1 = c(
-    5,  8, 12,   
-    4, 10,       
-    3,  3,  2,   
-    4,  4),
-
-  biomarker2 = c(
-    6,6,6,
-    5,5,
-    7,7,7,
-    4,4)
-)
-biomarkers=c("biomarker1","biomarker2")
-
-```
 
 ```{r}
 processed_data<-preprocess_data(
@@ -170,18 +157,18 @@ outcomes=res[[1]]
 terms=res[[2]]
 FDR_res<-calculate_FDR(outcomes,terms)
 
-head(FDR_res)
+FDR_res
 ```
 
 **Interpretation**
 
-- HR > 1: higher biomarker levels associated with increased risk
-- HR < 1: higher biomarker levels associated with decreased risk
+- HR > 1: Higher biomarker levels are associated with an increased risk of the outcome. 
+- HR < 1: Higher biomarker levels are associated with a decreased risk of the outcome.
 
 
 This approach incorporates longitudinal biomarker trajectories directly into the survival model.
 
-Applications include:
+Typical applications include:
 
 - Dynamic disease monitoring
 - Longitudinal immune profiling
@@ -193,11 +180,6 @@ Tests whether biomarker effects change over time.
 
 This model evaluates interactions between biomarker levels and follow-up time.
 
-Applications include:
-
-- Early versus late disease effects
-- Treatment adaptation studies
-- Temporal changes in biomarker importance
 
 ```{r}
 
@@ -210,24 +192,34 @@ outcomes=res[[1]]
 terms=res[[2]]
 FDR_res<-calculate_FDR(outcomes,terms)
 
-head(FDR_res)
+FDR_res
 
 ```
 
 **Interpretation**
 
--biomarker*_bl: tests are between baseline biomarker levels and outcomes
--tt(biomarker*_bl): tests are between changes in relationships between baseline biomarker levels and outcomes
+- biomarker*_bl: 
+Tests the association between baseline biomarker levels and the outcome.
+- tt(biomarker*_bl): 
+Tests whether the association between baseline biomarker levels and the outcome changes over time.
 
 For biomarker*_bl:
-- HR > 1: higher baseline biomarker levels associated with increased risk
-- HR < 1: higher baseline biomarker levels associated with decreased risk
+
+- HR > 1: Higher baseline biomarker levels are associated with an increased risk of the outcome.
+- HR < 1: Higher baseline biomarker levels are associated with a decreased risk of the outcome.
 
 For tt(biomarker*_bl):
-- HR > 1: impact of baseline biomarker levels on risk increase over time. 
-- HR < 1: impact of baseline biomarker levels on risk decrease over time. 
+
+- HR > 1: The effect of the baseline biomarker on outcome risk increases over time.
+- HR < 1: The effect of the baseline biomarker on outcome risk decreases over time.
 
 **Note:** Time-varying coefficient models typically require larger sample sizes and more events than standard Cox models. The toy dataset is provided for demonstration purposes only, and some interaction terms may not be estimable. 
+
+Typical applications include:
+
+- Early versus late disease effects
+- Treatment adaptation studies
+- Temporal changes in biomarker importance
 
 ## Baseline + Change Model
 
@@ -257,19 +249,30 @@ outcomes=res[[1]]
 terms=res[[2]]
 FDR_res<-calculate_FDR(outcomes,terms)
 
-head(FDR_res)
+FDR_res
 
 ```
 **Interpretation**
 
-- HR > 1: higher baseline biomarker levels or larger changes in biomarker levels associated with increased risk
-- HR < 1: higher baseline biomarker levels or larger changes in biomarker levels associated with decreased risk
+- biomarker*_bl:
+Tests the association between baseline biomarker levels and the outcome.
 
--biomarker*_bl: tests are between baseline biomarker levels and outcomes
--biomarker*_delta: tests are between changes in biomarker levels and outcomes
+- biomarker*_delta:
+Tests the association between within-subject changes in biomarker levels and the outcome.
 
+For biomarker*_bl:
+
+- HR > 1: Higher baseline biomarker levels are associated with an increased risk of the outcome.
+- HR < 1: Higher baseline biomarker levels are associated with a decreased risk of the outcome.
+
+For biomarker*_delta:
+
+- HR > 1: Larger increases (or smaller decreases) in biomarker levels are associated with an increased risk of the outcome.
+- HR < 1: Larger increases (or smaller decreases) in biomarker levels are associated with a decreased risk of the outcome.
 
 ## Technical Design
+
+The package was designed to provide a consistent interface for evaluating multiple biological hypotheses within a unified survival modeling framework.
 
 Key design principles include:
 
@@ -287,16 +290,15 @@ survOmicsPkg/
 ├── R/                    # Core package functions
 ├── man/                  # Function documentation
 ├── tests/                # Unit tests
+├── data/                 # Example datasets
 ├── man/figures/          # Workflow and documentation figures
 ├── README.Rmd
 ├── README.md
 ├── DESCRIPTION
-├── NAMESPACE
-├── LICENSE.md
-└── LICENSE
+└── NAMESPACE
 ```
 
-## Project Significance
+## Applications in Translational Research
 
 survOmicsPkg was developed to address analytical challenges commonly encountered in longitudinal multi-omics studies. By providing a unified framework for evaluating baseline, dynamic, and time-dependent biomarker effects, the package facilitates reproducible biomarker discovery and translational research workflows.
 
