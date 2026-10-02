@@ -41,7 +41,8 @@ run_single_cox_flexible(
 
 \item{interaction_var}{Optional interaction variable name.}
 
-\item{time_varying_coefficients}{Optional function to model time varying, TRUE/FALSE}
+\item{time_varying_coefficients}{Whether to add a time-varying coefficient
+for a baseline biomarker.}
 
 \item{center_time}{Center time if needed}
 

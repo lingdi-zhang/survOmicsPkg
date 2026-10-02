@@ -35,6 +35,11 @@ construct_metadata(
 
 \item{biomarker_type}{One of "baseline", "time_varying",  or "baseline_change".}
 }
+\details{
+\code{event_col} must contain non-missing numeric values coded as 0 or 1.
+Missing or invalid event statuses cause an error rather than being treated
+as censored observations.
+}
 \value{
 A data frame with one row per subject.
 }

@@ -17,6 +17,10 @@
 #' @param tv_suffix Time-varying suffix.
 #' @param change_suffix Change suffix.
 #'
+#' @details Rows are retained only when survival fields, selected biomarker
+#'   fields, and supplied covariate fields are complete. Missing values in
+#'   unused feature columns do not remove rows.
+#'
 #' @return A data frame with survival metadata and biomarker measurements
 #' @export
 
@@ -70,10 +74,11 @@ preprocess_data<-function(metadata,
                 data=metadata_format  |>  dplyr::left_join(time_varying_feature_table, by = keys) |>
     		dplyr::left_join(baseline_feature_table, by = id_col)
 		for (p in biomarkers) {
-  			bl_col <- paste0(p, "_bl")
-  			tv_col <- paste0(p, "_tv")
-  			delta_col <- paste0(p, "_delta")
-  			data[[delta_col]] <- data[[tv_col]] - data[[bl_col]]}
+            bl_col <- paste0(p, baseline_suffix)
+            tv_col <- paste0(p, tv_suffix)
+            delta_col <- paste0(p, change_suffix)
+            data[[delta_col]] <- data[[tv_col]] - data[[bl_col]]
+        }
 	
 	
 	}
@@ -82,9 +87,32 @@ preprocess_data<-function(metadata,
 		data=dplyr::inner_join(data,covariates_table,by=id_col)
 }
 
-	data=data[stats::complete.cases(data),]
+	biomarker_columns <- switch(
+		biomarker_type,
+		baseline = paste0(biomarkers, baseline_suffix),
+		time_varying = paste0(biomarkers, tv_suffix),
+		baseline_change = c(
+			paste0(biomarkers, baseline_suffix),
+			paste0(biomarkers, change_suffix)
+		)
+	)
+	survival_columns <- if (biomarker_type == "baseline") {
+		c(id_col, new_time_col, new_event_col)
+	} else {
+		c(id_col, start_col, stop_col, event_col)
+	}
+	covariate_columns <- if (is.null(covariates_table)) {
+		character()
+	} else {
+		setdiff(names(covariates_table), id_col)
+	}
+	required_columns <- unique(c(
+		survival_columns,
+		biomarker_columns,
+		covariate_columns
+	))
+	data <- data[stats::complete.cases(data[, required_columns, drop = FALSE]), ]
 	data
 }
 
 	
-

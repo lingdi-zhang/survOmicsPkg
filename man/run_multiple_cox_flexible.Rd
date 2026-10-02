@@ -41,7 +41,9 @@ run_multiple_cox_flexible(
 
 \item{interaction_var}{Optional interaction variable name.}
 
-\item{time_varying_coefficients}{Optional function to model time varying,TRUE/FLASE.}
+\item{time_varying_coefficients}{Whether to add a time-varying coefficient
+for each baseline biomarker. Supported only when \code{biomarker_type} is
+\code{"baseline"}.}
 
 \item{center_time}{Center time if needed}
 
@@ -54,7 +56,7 @@ run_multiple_cox_flexible(
 \item{ties}{Tie handling method.}
 }
 \value{
-A stacked data frame with multiple biomarker output
+A list containing a stacked result data frame and term information.
 }
 \description{
 Fit flexible Cox models across multiple biomarkers

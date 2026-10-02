@@ -59,6 +59,11 @@ preprocess_data(
 \value{
 A data frame with survival metadata and biomarker measurements
 }
+\details{
+Rows are retained only when survival fields, selected biomarker
+fields, and supplied covariate fields are complete. Missing values in
+unused feature columns do not remove rows.
+}
 \description{
 preproccess survival metadata, biomarker table and covariate table
 }

@@ -18,14 +18,14 @@ calculate_FDR<-function(res,terms,effect_col='effect_type',term_col='term',pvalu
 	main_output=list()
 	interaction_output=list()
 	for (i in (1:length(terms[[main_term]]))){
-		main <- main_data |> dplyr::filter(stringr::str_detect(.data[[term_col]], terms[[main_term]][i]))
+		main <- main_data |> dplyr::filter(stringr::str_detect(.data[[term_col]], stringr::fixed(terms[[main_term]][i])))
 		main$FDR=stats::p.adjust(main[[pvalue_col]],method='fdr')
 		main_output[[i]]=main
 	}
 
 	if (length(terms[[other_terms]]) >0) {
 	for (i in (1:length(terms[[other_terms]]))){
-                interaction <- interaction_data |> dplyr::filter(stringr::str_detect(.data[[term_col]], terms[[other_terms]][i]))
+                interaction <- interaction_data |> dplyr::filter(stringr::str_detect(.data[[term_col]], stringr::fixed(terms[[other_terms]][i])))
                 interaction$FDR=stats::p.adjust(interaction[[pvalue_col]],method='fdr')
                 interaction_output[[i]]=interaction
         }
@@ -39,7 +39,6 @@ calculate_FDR<-function(res,terms,effect_col='effect_type',term_col='term',pvalu
 
 	OUT
 }
-
 
 
 

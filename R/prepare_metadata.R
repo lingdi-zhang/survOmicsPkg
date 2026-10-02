@@ -17,6 +17,10 @@
 #' @param stop_col Stop indicator column name
 #' @param biomarker_type One of "baseline", "time_varying",  or "baseline_change".
 #'
+#' @details `event_col` must contain non-missing numeric values coded as 0 or 1.
+#'   Missing or invalid event statuses cause an error rather than being treated
+#'   as censored observations.
+#'
 #' @return A data frame with one row per subject.
 
 
@@ -31,6 +35,22 @@ construct_metadata<-function(metadata,
 			     biomarker_type = c("baseline", "time_varying","baseline_change")){
 
         biomarker_type <- match.arg(biomarker_type)
+        if (is.null(event_col) || length(event_col) != 1L ||
+            is.na(event_col) || !nzchar(event_col)) {
+                stop("`event_col` must name a column in `metadata`.", call. = FALSE)
+        }
+        if (!is.data.frame(metadata) || !event_col %in% names(metadata)) {
+                stop("`event_col` must name a column in `metadata`.", call. = FALSE)
+        }
+        event_status <- metadata[[event_col]]
+        if (!is.numeric(event_status) || anyNA(event_status) ||
+            any(!is.finite(event_status)) || any(!event_status %in% c(0, 1))) {
+                stop(
+                        "`event_col` must contain only non-missing numeric values coded as 0 or 1.",
+                        call. = FALSE
+                )
+        }
+
         if (biomarker_type=="baseline") {
                 metadata_format <-
                 dplyr::arrange(metadata,.data[[id_col]], .data[[time_col]]) |>
@@ -53,13 +73,12 @@ construct_metadata<-function(metadata,
 		dplyr::filter({first_event_row <- match(TRUE, event_interval == 1)
                        if (is.na(first_event_row)) TRUE else dplyr::row_number() <= first_event_row}) |>
                 dplyr::filter(!is.na(.data[[stop_col]])) |>
-                dplyr::mutate(!!event_col := as.integer(dplyr::coalesce(event_interval, 0L))) |>
+		dplyr::mutate(!!event_col := as.integer(event_interval)) |>
 		dplyr::ungroup() |>
                 dplyr::select(dplyr::all_of(id_col), dplyr::all_of(start_col), dplyr::all_of(stop_col), dplyr::all_of(event_col))}
 
 	metadata_format
 }
-
 
 
 

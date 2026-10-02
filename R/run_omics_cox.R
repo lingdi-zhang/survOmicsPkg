@@ -9,14 +9,16 @@
 #' @param stop_col Stop column for start-stop Cox.
 #' @param covariates Optional covariate names.
 #' @param interaction_var Optional interaction variable name.
-#' @param time_varying_coefficients Optional function to model time varying,TRUE/FLASE.
+#' @param time_varying_coefficients Whether to add a time-varying coefficient
+#'   for each baseline biomarker. Supported only when `biomarker_type` is
+#'   `"baseline"`.
 #' @param center_time Center time if needed
 #' @param baseline_suffix Baseline suffix.
 #' @param tv_suffix Time-varying suffix.
 #' @param change_suffix Change suffix.
 #' @param ties Tie handling method.
 #'
-#' @return A stacked data frame with multiple biomarker output 
+#' @return A list containing a stacked result data frame and term information.
 #' @export
 
 run_multiple_cox_flexible <- function(data,
@@ -35,8 +37,7 @@ run_multiple_cox_flexible <- function(data,
                                       change_suffix = "_delta",
                                       ties = "efron") {
   biomarker_type <- match.arg(biomarker_type)
-  results <- do.call(
-    rbind,
+  results <- dplyr::bind_rows(
     lapply(biomarkers, function(biomarker) {
       tryCatch(
         run_single_cox_flexible(
@@ -105,5 +106,3 @@ run_multiple_cox_flexible <- function(data,
 
   return(list(results, term_info))
 }
-
-

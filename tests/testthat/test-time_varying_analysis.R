@@ -20,14 +20,13 @@ test_that("test time varying analysis", {
   expect_true(all(out$event %in% c(0, 1)))
 
 
- res<-run_multiple_cox_flexible(out,biomarker=biomarkers,biomarker_type="time_varying",start_col="start",stop_col="stop",event_col="event")
+ res<-run_multiple_cox_flexible(out,biomarkers=biomarkers,biomarker_type="time_varying",start_col="start",stop_col="stop",event_col="event")
  print(res)
 outcome=res[[1]]
 term_info=res[[2]]
 output=calculate_FDR(outcome,term_info)
 
 })
-
 
 
 

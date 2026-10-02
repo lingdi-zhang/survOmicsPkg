@@ -9,7 +9,8 @@
 #' @param stop_col Stop column for start-stop Cox.
 #' @param covariates Optional covariate names.
 #' @param interaction_var Optional interaction variable name.
-#' @param time_varying_coefficients Optional function to model time varying, TRUE/FALSE
+#' @param time_varying_coefficients Whether to add a time-varying coefficient
+#'   for a baseline biomarker.
 #' @param center_time Center time if needed
 #' @param baseline_suffix Baseline suffix.
 #' @param tv_suffix Time-varying suffix.
@@ -36,6 +37,18 @@ run_single_cox_flexible <- function(data,
                                     ties = "efron") {
   biomarker_type <- match.arg(biomarker_type)
 
+  if (!is.logical(time_varying_coefficients) ||
+      length(time_varying_coefficients) != 1L ||
+      is.na(time_varying_coefficients)) {
+    stop("`time_varying_coefficients` must be TRUE or FALSE.", call. = FALSE)
+  }
+  if (time_varying_coefficients && biomarker_type != "baseline") {
+    stop(
+      "`time_varying_coefficients = TRUE` is supported only for baseline biomarkers.",
+      call. = FALSE
+    )
+  }
+
   term_info <- build_biomarker_terms(
     biomarker = biomarker,
     biomarker_type = biomarker_type,
@@ -56,8 +69,11 @@ run_single_cox_flexible <- function(data,
   )
 
   if (time_varying_coefficients){
-	  biomarker=paste0(biomarker,baseline_suffix)
-	  fml <- stats::as.formula(paste0(deparse(fml), " + tt(", biomarker, ")"))
+	  time_varying_term <- paste0(biomarker, baseline_suffix)
+	  fml <- stats::as.formula(paste0(
+	    paste(deparse(fml), collapse = ""),
+	    " + tt(", time_varying_term, ")"
+	  ))
 	  fit <- survival::coxph(
           formula = fml,
           data = data,
@@ -73,6 +89,11 @@ run_single_cox_flexible <- function(data,
   )
   }
   sm <- summary(fit)
+  coefficient_model_terms <- rep(NA_character_, length(stats::coef(fit)))
+  for (model_term in names(fit$assign)) {
+    coefficient_model_terms[fit$assign[[model_term]]] <- model_term
+  }
+  names(coefficient_model_terms) <- names(stats::coef(fit))
 
   out <- data.frame(
     biomarker = biomarker,
@@ -87,13 +108,25 @@ run_single_cox_flexible <- function(data,
     stringsAsFactors = FALSE
   )
 
+  model_terms <- unname(coefficient_model_terms[out$term])
+  is_time_varying_term <- startsWith(model_terms, "tt(") &
+    vapply(
+      model_terms,
+      function(term) {
+        if (is.na(term) || !startsWith(term, "tt(")) {
+          return(FALSE)
+        }
+        sub("^tt\\((.*)\\)$", "\\1", term) %in% term_info$main_terms
+      },
+      logical(1)
+    )
+  is_main_term <- model_terms %in% term_info$main_terms & !is_time_varying_term
+  is_other_term <- model_terms %in% term_info$other_terms | is_time_varying_term
   out$effect_type <- ifelse(
-    out$term %in% term_info$main_terms, "main_terms",
-    ifelse(out$term %in% term_info$other_terms, "other_terms", "covariate")
+    is_main_term, "main_terms",
+    ifelse(is_other_term, "other_terms", "covariate")
   )
  out
 }
-
-
 
 
