@@ -21,7 +21,11 @@
 #'   Missing or invalid event statuses cause an error rather than being treated
 #'   as censored observations.
 #'
-#' @return A data frame with one row per subject.
+#' @details Visit times must be finite, non-missing numeric values with unique subject-time pairs. Longitudinal modes reject first-visit events and require stop > start.
+#' @details Output names must be nonempty and distinct, including the subject
+#'   ID. Input column names may be reused safely for the output.
+#' @return A data frame with one row per subject for baseline mode, or one row
+#'   per survival interval for longitudinal modes.
 
 
 construct_metadata<-function(metadata,
@@ -51,35 +55,72 @@ construct_metadata<-function(metadata,
                 )
         }
 
-        if (biomarker_type=="baseline") {
-                metadata_format <-
-                dplyr::arrange(metadata,.data[[id_col]], .data[[time_col]]) |>
-                dplyr::group_by(.data[[id_col]]) |>
-  		dplyr::summarise(!!new_event_col:= as.integer(any(.data[[event_col]] == 1)),
-                                 !!new_time_col:= ifelse(any(.data[[event_col]] == 1),
-                                 min(.data[[time_col]][.data[[event_col]] == 1]),
-                                 max(.data[[time_col]])),
-                                 .groups = "drop")
-	}
-
-     	event_interval <- NULL	
-        if (biomarker_type %in% c("time_varying","baseline_change")) {
-                metadata_format <- 
-                dplyr::arrange(metadata,.data[[id_col]], .data[[time_col]]) |>
-                dplyr::group_by(.data[[id_col]]) |>
-                dplyr::mutate(!!start_col := .data[[time_col]],
-                        !!stop_col := dplyr::lead(.data[[time_col]]),
-                        event_interval = dplyr::lead(.data[[event_col]])) |>
-		dplyr::filter({first_event_row <- match(TRUE, event_interval == 1)
-                       if (is.na(first_event_row)) TRUE else dplyr::row_number() <= first_event_row}) |>
-                dplyr::filter(!is.na(.data[[stop_col]])) |>
-		dplyr::mutate(!!event_col := as.integer(event_interval)) |>
-		dplyr::ungroup() |>
-                dplyr::select(dplyr::all_of(id_col), dplyr::all_of(start_col), dplyr::all_of(stop_col), dplyr::all_of(event_col))}
-
-	metadata_format
+        required <- c(id_col, time_col)
+        if (!all(required %in% names(metadata))) {
+            stop("Subject ID and visit time columns must exist in `metadata`.", call. = FALSE)
+        }
+        if (anyNA(metadata[[id_col]])) {
+            stop("Subject IDs must not be missing.", call. = FALSE)
+        }
+        times <- metadata[[time_col]]
+        if (!is.numeric(times) || anyNA(times) || any(!is.finite(times))) {
+            stop("Visit times must be non-missing, finite numeric values.", call. = FALSE)
+        }
+        output_fields <- if (biomarker_type == "baseline") {
+            list(id_col, new_time_col, new_event_col)
+        } else list(id_col, start_col, stop_col, event_col)
+        if (!all(vapply(output_fields, function(x) is.character(x) &&
+                        length(x) == 1L && !is.na(x) && nzchar(x), logical(1)))) {
+            stop("Output column names must be nonempty character scalars.", call. = FALSE)
+        }
+        output_names <- if (biomarker_type == "baseline") {
+            c(id_col, new_time_col, new_event_col)
+        } else c(id_col, start_col, stop_col, event_col)
+        if (anyNA(output_names) || any(!nzchar(output_names)) ||
+            anyDuplicated(output_names)) {
+            stop("Output column names must be nonempty and distinct, including the subject ID.",
+                 call. = FALSE)
+        }
+        validate_unique_keys(metadata, c(id_col, time_col), "metadata")
+        # Normalize a private copy so output names cannot overwrite source fields.
+        panel <- metadata[, c(id_col, time_col, event_col), drop = FALSE]
+        names(panel) <- c(".subject", ".visit", ".status")
+        panel <- dplyr::arrange(panel, .data$.subject, .data$.visit)
+        if (biomarker_type != "baseline") {
+            first <- !duplicated(panel$.subject)
+            affected <- panel$.subject[first & panel$.status == 1]
+            if (length(affected)) {
+                stop(paste0("First-visit events are unsupported for longitudinal analysis. Subject IDs: ",
+                            paste(affected, collapse = ", ")), call. = FALSE)
+            }
+        }
+        if (biomarker_type == "baseline") {
+            metadata_format <- panel |>
+                dplyr::group_by(.data$.subject) |>
+                dplyr::summarise(
+                    .survival_time = if (any(.data$.status == 1)) {
+                        min(.data$.visit[.data$.status == 1])
+                    } else max(.data$.visit),
+                    .survival_event = as.integer(any(.data$.status == 1)),
+                    .groups = "drop")
+        } else {
+            metadata_format <- panel |>
+                dplyr::group_by(.data$.subject) |>
+                dplyr::mutate(.start = .data$.visit,
+                              .stop = dplyr::lead(.data$.visit),
+                              .interval_event = dplyr::lead(.data$.status)) |>
+                dplyr::filter({
+                    first_event_row <- match(TRUE, .data$.interval_event == 1)
+                    if (is.na(first_event_row)) TRUE else dplyr::row_number() <= first_event_row
+                }) |>
+                dplyr::filter(!is.na(.data$.stop)) |>
+                dplyr::ungroup() |>
+                dplyr::select(dplyr::all_of(c(".subject", ".start", ".stop", ".interval_event")))
+            metadata_format$.interval_event <- as.integer(metadata_format$.interval_event)
+            if (any(metadata_format$.stop <= metadata_format$.start)) {
+                stop("Every survival interval must have stop > start.", call. = FALSE)
+            }
+        }
+        names(metadata_format) <- output_names
+        metadata_format
 }
-
-
-
-

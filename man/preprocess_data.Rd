@@ -60,9 +60,15 @@ preprocess_data(
 A data frame with survival metadata and biomarker measurements
 }
 \details{
+Baseline features and covariates must have unique subject IDs. Longitudinal features must have unique subject-time pairs. Missing join keys cause an error.
+
 Rows are retained only when survival fields, selected biomarker
 fields, and supplied covariate fields are complete. Missing values in
-unused feature columns do not remove rows.
+unused feature columns do not remove rows. Feature tables are restricted to
+join keys and requested biomarkers. Remaining non-key column collisions
+cause an error naming the overlapping columns. Generated feature names
+must be distinct and must not collide with survival fields, join keys,
+or covariates. Empty suffixes are allowed when names remain unique.
 }
 \description{
 preproccess survival metadata, biomarker table and covariate table

@@ -44,7 +44,7 @@ run_single_cox_flexible(
 \item{time_varying_coefficients}{Whether to add a time-varying coefficient
 for a baseline biomarker.}
 
-\item{center_time}{Center time if needed}
+\item{center_time}{A finite numeric scalar when time-varying coefficients are enabled.}
 
 \item{baseline_suffix}{Baseline suffix.}
 
@@ -60,3 +60,20 @@ A data frame of model output.
 \description{
 Fit one flexible Cox model for one biomarker
 }
+
+\details{
+The returned \code{fdr_group} column identifies baseline, change, interaction, and time coefficient families. Nonstandard column names are supported.
+
+Longitudinal modes require both interval columns. Results include
+\code{fit_status} (ok, warning, unreliable, partial, or not_estimable) and captured \code{warning}
+messages. Convergence and infinite-coefficient warnings mark a fit as unreliable.
+Survival times must be finite, non-missing numeric values; events must be
+non-missing numeric 0/1 values. Interval models require stop > start.
+Interaction models include the modifier main effect as a covariate.
+All biomarker, covariate, and modifier columns must exist in \code{data}.
+Baseline and change model columns must have distinct names.
+Each row has an \code{effect_status} of estimable or not_estimable, based on
+finite coefficients and p-values. Fits with some unestimable biomarker
+effects are partial; fits with none estimable are not_estimable.
+Convergence failures retain unreliable status. Covariate estimability
+does not determine the overall biomarker fit status.}

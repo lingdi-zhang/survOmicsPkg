@@ -7,6 +7,7 @@
 #' @param change_suffix Suffix for change biomarker columns.
 #' @param interaction_var Optional interaction variable name.
 #'
+#' @details Interaction models include the modifier's main effect.
 #' @return A list with main_terms, other_terms, and rhs_terms.
 
 
@@ -39,8 +40,12 @@ build_biomarker_terms <- function(biomarker,
   if (biomarker_type == "baseline_change") {
     main_terms <- c(bl, ch)
   }
+  main_calls <- lapply(main_terms, as.name)
+  interaction_calls <- if (is.null(interaction_var)) list() else
+    lapply(main_calls, function(x) call(":", x, as.name(interaction_var)))
+  main_terms <- vapply(main_calls, function(x) paste(deparse(x, backtick = TRUE), collapse = ""), character(1))
   if (!is.null(interaction_var)) {
-    other_terms <- c(other_terms, paste0(main_terms, ":", interaction_var))
+    other_terms <- vapply(interaction_calls, function(x) paste(deparse(x, backtick = TRUE), collapse = ""), character(1))
   }
 
 #  if (time_varying_coefficients){
@@ -50,7 +55,7 @@ build_biomarker_terms <- function(biomarker,
  out= list(
     main_terms = unique(main_terms),
     other_terms = unique(other_terms),
-    rhs_terms = unique(c(main_terms, other_terms))
+    rhs_terms = c(main_calls, lapply(interaction_var, as.name), interaction_calls)
   )
 
 }

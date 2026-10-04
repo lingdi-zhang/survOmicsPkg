@@ -45,7 +45,7 @@ run_multiple_cox_flexible(
 for each baseline biomarker. Supported only when \code{biomarker_type} is
 \code{"baseline"}.}
 
-\item{center_time}{Center time if needed}
+\item{center_time}{A finite numeric scalar when time-varying coefficients are enabled.}
 
 \item{baseline_suffix}{Baseline suffix.}
 
@@ -61,3 +61,5 @@ A list containing a stacked result data frame and term information.
 \description{
 Fit flexible Cox models across multiple biomarkers
 }
+
+\details{Duplicate biomarker names cause an error before any models are fitted.}

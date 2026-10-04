@@ -29,3 +29,8 @@ A formula object.
 \description{
 Build survival formula
 }
+
+\details{
+Column names are represented as symbols, supporting spaces and punctuation.
+Interval columns must be supplied together.
+}

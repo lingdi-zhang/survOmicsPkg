@@ -19,8 +19,13 @@
 #'
 #' @details Rows are retained only when survival fields, selected biomarker
 #'   fields, and supplied covariate fields are complete. Missing values in
-#'   unused feature columns do not remove rows.
+#'   unused feature columns do not remove rows. Feature tables are restricted to
+#'   join keys and requested biomarkers. Remaining non-key column collisions
+#'   cause an error naming the overlapping columns. Generated feature names
+#'   must be distinct and must not collide with survival fields, join keys,
+#'   or covariates. Empty suffixes are allowed when names remain unique.
 #'
+#' @details Baseline features and covariates must have unique subject IDs. Longitudinal features must have unique subject-time pairs. Missing join keys cause an error.
 #' @return A data frame with survival metadata and biomarker measurements
 #' @export
 
@@ -43,6 +48,42 @@ preprocess_data<-function(metadata,
 			   change_suffix="_delta"){
 
 	biomarker_type <- match.arg(biomarker_type)
+        generated_columns <- switch(biomarker_type,
+            baseline = paste0(biomarkers, baseline_suffix),
+            time_varying = paste0(biomarkers, tv_suffix),
+            baseline_change = c(paste0(biomarkers, baseline_suffix),
+                                paste0(biomarkers, tv_suffix),
+                                paste0(biomarkers, change_suffix)))
+        survival_columns <- if (biomarker_type == "baseline") {
+            c(id_col, new_time_col, new_event_col)
+        } else c(id_col, start_col, stop_col, event_col, time_col)
+        reserved_columns <- c(survival_columns,
+            if (!is.null(covariates_table)) names(covariates_table))
+        conflicts <- unique(c(generated_columns[duplicated(generated_columns)],
+                              intersect(generated_columns, reserved_columns)))
+        if (length(conflicts)) {
+            stop(paste0("Generated feature column names conflict: ",
+                        paste(conflicts, collapse = ", "),
+                        ". Choose distinct biomarker names or suffixes."), call. = FALSE)
+        }
+        if (biomarker_type %in% c("baseline", "baseline_change")) {
+            validate_unique_keys(baseline_feature_table, id_col, "baseline_feature_table")
+        }
+        if (biomarker_type %in% c("time_varying", "baseline_change")) {
+            validate_unique_keys(time_varying_feature_table, c(id_col, time_col),
+                                 "time_varying_feature_table")
+        }
+        if (!is.null(covariates_table)) {
+            validate_unique_keys(covariates_table, id_col, "covariates_table")
+        }
+        if (biomarker_type %in% c("baseline", "baseline_change")) {
+            baseline_feature_table <- dplyr::select(baseline_feature_table,
+                dplyr::all_of(unique(c(id_col, biomarkers))))
+        }
+        if (biomarker_type %in% c("time_varying", "baseline_change")) {
+            time_varying_feature_table <- dplyr::select(time_varying_feature_table,
+                dplyr::all_of(unique(c(id_col, time_col, biomarkers))))
+        }
 	metadata_format=construct_metadata(metadata,
 					   id_col = id_col,
                              time_col = time_col,
@@ -56,13 +97,13 @@ preprocess_data<-function(metadata,
 
 	if (biomarker_type =="baseline"){
 		baseline_feature_table  <-  baseline_feature_table |>  dplyr::rename_with(~ paste0(.x, baseline_suffix),dplyr::all_of(biomarkers))
-		data=dplyr::left_join(metadata_format,baseline_feature_table,by=id_col)
+		data=join_without_collisions(metadata_format,baseline_feature_table,by=id_col)
 			   }
 	if (biomarker_type =="time_varying") {
 		time_varying_feature_table  <- time_varying_feature_table |> dplyr::rename_with(~ paste0(.x, tv_suffix),dplyr::all_of(biomarkers))
 		time_varying_feature_table <- time_varying_feature_table |>  dplyr::rename(!!start_col := !!time_col)
 		keys=c(id_col,start_col)
-		data=dplyr::left_join(metadata_format,time_varying_feature_table,by=keys)
+		data=join_without_collisions(metadata_format,time_varying_feature_table,by=keys)
 	}
 	if (biomarker_type =="baseline_change") {
 		baseline_feature_table  <- baseline_feature_table |> dplyr::rename_with(~ paste0(.x, baseline_suffix),dplyr::all_of(biomarkers))
@@ -71,8 +112,8 @@ preprocess_data<-function(metadata,
                 time_varying_feature_table <- time_varying_feature_table |>  dplyr::rename(!!start_col := !!time_col)
 
 		keys=c(id_col,start_col)
-                data=metadata_format  |>  dplyr::left_join(time_varying_feature_table, by = keys) |>
-    		dplyr::left_join(baseline_feature_table, by = id_col)
+                data=metadata_format  |>  join_without_collisions(time_varying_feature_table, by = keys) |>
+                join_without_collisions(baseline_feature_table, by = id_col)
 		for (p in biomarkers) {
             bl_col <- paste0(p, baseline_suffix)
             tv_col <- paste0(p, tv_suffix)
@@ -84,7 +125,7 @@ preprocess_data<-function(metadata,
 	}
 
 	if (!is.null(covariates_table)){
-		data=dplyr::inner_join(data,covariates_table,by=id_col)
+		data=join_without_collisions(data,covariates_table,by=id_col, inner=TRUE)
 }
 
 	biomarker_columns <- switch(
@@ -116,3 +157,30 @@ preprocess_data<-function(metadata,
 }
 
 	
+
+# Internal validation shared by metadata construction and feature joins.
+validate_unique_keys <- function(data, keys, label) {
+  if (!is.data.frame(data) || !all(keys %in% names(data))) {
+    stop(sprintf("`%s` must contain key columns: %s.", label, paste(keys, collapse = ", ")),
+         call. = FALSE)
+  }
+  if (anyNA(data[, keys, drop = FALSE])) {
+    stop(sprintf("`%s` has missing join keys.", label), call. = FALSE)
+  }
+  duplicated_rows <- duplicated(data[, keys, drop = FALSE])
+  if (any(duplicated_rows)) {
+    stop(sprintf("`%s` has duplicate keys (%s).", label, paste(keys, collapse = ", ")),
+         call. = FALSE)
+  }
+}
+
+
+# Reject collisions instead of letting join suffixes rename model fields.
+join_without_collisions <- function(x, y, by, inner = FALSE) {
+  collisions <- setdiff(intersect(names(x), names(y)), by)
+  if (length(collisions)) {
+    stop(paste0("Overlapping non-key columns: ", paste(collisions, collapse = ", "),
+                ". Rename these columns before joining."), call. = FALSE)
+  }
+  if (inner) dplyr::inner_join(x, y, by = by) else dplyr::left_join(x, y, by = by)
+}

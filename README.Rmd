@@ -62,7 +62,7 @@ The package was designed around common analytical challenges encountered in long
 
 # Installation
 
-```{r}
+```{r installation, eval=FALSE}
 library("remotes")
 remotes::install_github("lingdi-zhang/survOmicsPkg", force=TRUE)
 library(survOmicsPkg)
@@ -102,29 +102,95 @@ survOmicsPkg requires a longitudinal metadata table and a biomarker dataset link
 
 Each row represents a biomarker measurement collected at a specific follow-up time for a given subject.
 
-### Example Datasets
+### Toy Data for Input Formats
 
-```{r}
+The package includes `toy_metadata`, `toy_baseline_biomarkers`, and
+`toy_timevarying_biomarkers`. Use these small tables to inspect input formats
+and try preprocessing. The modeling examples below use a larger simulated study.
+
+```{r toy-formats, eval=FALSE}
 data("toy_metadata")
 data("toy_baseline_biomarkers")
 data("toy_timevarying_biomarkers")
-biomarkers <- c("biomarker1", "biomarker2")
+head(toy_metadata)
 ```
+
+### Simulated Study for Modeling
+
+All four examples use the same 400 subjects and two biomarkers. Follow-up is
+measured in years, with annual visits and at most six years of observation.
+Event times depend on baseline biomarker values; independent censoring also
+occurs. Longitudinal measurements start at the baseline value and vary with
+subject-specific slopes and measurement noise. This simulation demonstrates
+how to run each model; it does not guarantee significant results for every effect.
+
+```{r simulate-study}
+set.seed(2026)
+n <- 400
+biomarkers <- c("biomarker1", "biomarker2")
+sim_baseline <- data.frame(
+  id = seq_len(n),
+  biomarker1 = rnorm(n),
+  biomarker2 = rnorm(n)
+)
+
+rate <- 0.15 * exp(
+  0.35 * sim_baseline$biomarker1 - 0.25 * sim_baseline$biomarker2
+)
+event_time <- rexp(n, rate = rate)
+censor_time <- rexp(n, rate = 0.03)
+followup <- pmin(event_time, censor_time, 6)
+event <- as.integer(event_time <= pmin(censor_time, 6))
+slopes <- matrix(rnorm(2 * n, sd = 0.2), ncol = 2)
+
+# Include outcome/censoring records as well as all preceding annual visits.
+sim_metadata <- do.call(rbind, lapply(seq_len(n), function(i) {
+  visits <- c((0:5)[(0:5) < followup[i]], followup[i])
+  data.frame(
+    id = i,
+    time = visits,
+    event = c(rep(0L, length(visits) - 1L), event[i])
+  )
+}))
+
+sim_longitudinal <- sim_metadata[c("id", "time")]
+for (j in seq_along(biomarkers)) {
+  id <- sim_longitudinal$id
+  time <- sim_longitudinal$time
+  sim_longitudinal[[biomarkers[j]]] <-
+    sim_baseline[[biomarkers[j]]][id] + slopes[id, j] * time +
+    rnorm(length(time), sd = 0.15) * sqrt(time)
+}
+
+c(subjects = n, events = sum(event), censored = sum(event == 0))
+```
+
+Preprocessing carries each visit's measurement forward to the next visit or
+outcome time. Measurements at the outcome time are not used to predict that
+same event. The time-varying and baseline-plus-change models below use these
+start-stop intervals.
+
+Each result includes `fit_status`, `effect_status`, and `fdr_group`. FDR correction
+uses estimable effects in each family, including valid effects from partial fits;
+unreliable fits and unestimable effects receive missing FDRs.
 
 ## Baseline Biomarker Analysis
 
 Tests whether baseline biomarker levels are associated with future event risk.
 
-```{r}
-processed_data<-preprocess_data(
-  metadata=toy_metadata,biomarkers=biomarkers,id_col="id",event_col="event",time_col="time",baseline_feature_table=toy_baseline_biomarkers,biomarker_type="baseline")
-
-res<-run_multiple_cox_flexible(processed_data,biomarkers=biomarkers, event_col="event",time_col="time",biomarker_type="baseline")
-
-outcomes=res[[1]]
-terms=res[[2]]
-FDR_res<-calculate_FDR(outcomes,terms)
-
+```{r baseline-model}
+processed_data <- preprocess_data(
+  metadata = sim_metadata, biomarkers = biomarkers,
+  id_col = "id", event_col = "event", time_col = "time",
+  baseline_feature_table = sim_baseline,
+  biomarker_type = "baseline"
+)
+res <- run_multiple_cox_flexible(
+  data = processed_data, biomarkers = biomarkers, event_col = "event",
+  time_col = "time",
+  biomarker_type = "baseline"
+)
+FDR_res <- calculate_FDR(res[[1]], res[[2]])
 FDR_res
 
 ```
@@ -147,22 +213,26 @@ Tests whether biomarker values measured during follow-up are associated with eve
 This model treats biomarker measurements as time-dependent covariates and updates risk estimates as biomarker values change over follow-up.
 
 
-```{r}
-processed_data<-preprocess_data(
-  metadata=toy_metadata,biomarkers=biomarkers,id_col="id",event_col="event",time_col="time",start_col= 'start', stop_col='stop',time_varying_feature_table=toy_timevarying_biomarkers,biomarker_type="time_varying")
-
-res<-run_multiple_cox_flexible(processed_data,biomarkers=biomarkers, event_col="event",start_col= 'start', stop_col='stop',biomarker_type="time_varying")
-
-outcomes=res[[1]]
-terms=res[[2]]
-FDR_res<-calculate_FDR(outcomes,terms)
-
+```{r longitudinal-model}
+processed_data <- preprocess_data(
+  metadata = sim_metadata, biomarkers = biomarkers,
+  id_col = "id", event_col = "event", time_col = "time",
+  time_varying_feature_table = sim_longitudinal,
+  biomarker_type = "time_varying"
+)
+res <- run_multiple_cox_flexible(
+  data = processed_data, biomarkers = biomarkers, event_col = "event",
+  start_col = "start", stop_col = "stop",
+  biomarker_type = "time_varying"
+)
+FDR_res <- calculate_FDR(res[[1]], res[[2]])
 FDR_res
+
 ```
 
 **Interpretation**
 
-- HR > 1: Higher biomarker levels are associated with an increased risk of the outcome. 
+- HR > 1: Higher biomarker levels are associated with an increased risk of the outcome.
 - HR < 1: Higher biomarker levels are associated with a decreased risk of the outcome.
 
 
@@ -181,39 +251,46 @@ Tests whether biomarker effects change over time.
 This model evaluates interactions between biomarker levels and follow-up time.
 
 
-```{r}
-
-processed_data<-preprocess_data(
-  metadata=toy_metadata,biomarkers=biomarkers,id_col="id",event_col="event",time_col="time",baseline_feature_table=toy_baseline_biomarkers,biomarker_type="baseline")
-
-res<-run_multiple_cox_flexible(processed_data,biomarkers=biomarkers, event_col="event",time_col="time",biomarker_type="baseline",time_varying_coefficients=TRUE,center_time=0)
-
-outcomes=res[[1]]
-terms=res[[2]]
-FDR_res<-calculate_FDR(outcomes,terms)
-
+```{r time-coefficient-model}
+processed_data <- preprocess_data(
+  metadata = sim_metadata, biomarkers = biomarkers,
+  id_col = "id", event_col = "event", time_col = "time",
+  baseline_feature_table = sim_baseline,
+  biomarker_type = "baseline"
+)
+res <- run_multiple_cox_flexible(
+  data = processed_data, biomarkers = biomarkers, event_col = "event",
+  time_col = "time",
+  time_varying_coefficients = TRUE, center_time = 0,
+  biomarker_type = "baseline"
+)
+FDR_res <- calculate_FDR(res[[1]], res[[2]])
 FDR_res
 
 ```
 
 **Interpretation**
 
-- biomarker*_bl: 
-Tests the association between baseline biomarker levels and the outcome.
-- tt(biomarker*_bl): 
+- biomarker*_bl:
+Tests the baseline biomarker association at `center_time` (year zero here).
+- tt(biomarker*_bl):
 Tests whether the association between baseline biomarker levels and the outcome changes over time.
 
-For biomarker*_bl:
+For biomarker*_bl, evaluated at `center_time`:
 
 - HR > 1: Higher baseline biomarker levels are associated with an increased risk of the outcome.
 - HR < 1: Higher baseline biomarker levels are associated with a decreased risk of the outcome.
+
+The hazard ratio at year `t` is `exp(beta_bl + beta_tt * (t - center_time))`.
+The exponentiated `tt()` coefficient describes the change in this hazard ratio
+per year, rather than a separate overall biomarker hazard ratio.
 
 For tt(biomarker*_bl):
 
 - HR > 1: The effect of the baseline biomarker on outcome risk increases over time.
 - HR < 1: The effect of the baseline biomarker on outcome risk decreases over time.
 
-**Note:** Time-varying coefficient models typically require larger sample sizes and more events than standard Cox models. The toy dataset is provided for demonstration purposes only, and some interaction terms may not be estimable. 
+**Note:** The simulated event process uses constant baseline effects. A time-varying coefficient can therefore be estimable without providing evidence that the effect changes over time.
 
 Typical applications include:
 
@@ -236,19 +313,20 @@ This decomposition helps determine whether event risk is driven by:
 This framework is particularly useful for repeated-measurement studies.
 
 
-```{r}
-
-#Both the baseline biomarkers and time varying biomarkers are required in this model
-processed_data<-preprocess_data(
-  metadata=toy_metadata,biomarkers=biomarkers,id_col="id",event_col="event",time_col="time",start_col= 'start', stop_col='stop',baseline_feature_table=toy_baseline_biomarkers,time_varying_feature_table=toy_timevarying_biomarkers,biomarker_type="baseline_change")
-
-
-res<-run_multiple_cox_flexible(processed_data,biomarkers=biomarkers, event_col="event",start_col= 'start', stop_col='stop',biomarker_type="baseline_change")
-
-outcomes=res[[1]]
-terms=res[[2]]
-FDR_res<-calculate_FDR(outcomes,terms)
-
+```{r baseline-change-model}
+processed_data <- preprocess_data(
+  metadata = sim_metadata, biomarkers = biomarkers,
+  id_col = "id", event_col = "event", time_col = "time",
+  baseline_feature_table = sim_baseline,
+  time_varying_feature_table = sim_longitudinal,
+  biomarker_type = "baseline_change"
+)
+res <- run_multiple_cox_flexible(
+  data = processed_data, biomarkers = biomarkers, event_col = "event",
+  start_col = "start", stop_col = "stop",
+  biomarker_type = "baseline_change"
+)
+FDR_res <- calculate_FDR(res[[1]], res[[2]])
 FDR_res
 
 ```

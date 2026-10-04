@@ -32,3 +32,5 @@ A list with main_terms, other_terms, and rhs_terms.
 \description{
 Build biomarker terms for  Cox models
 }
+
+\details{Interaction models include the modifier main effect.}

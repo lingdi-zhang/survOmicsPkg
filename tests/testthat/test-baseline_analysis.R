@@ -1,30 +1,19 @@
-test_that("test baseline analysis", {
-	  
-
-
-   metadata <- data.frame(
-    subject = c(1,1,2,2),
-    time = c(0, 6, 0, 6),
-    event = c(0, 1, 0, 0))
-   baseline_df<-data.frame(
-	subject = c(1,2),
-	biomarker = c(2, 3))
-
-   biomarkers=c("biomarker")
-    
-  out <- preprocess_data(metadata,biomarkers=biomarkers,event_col="event",time_col="time",baseline_feature_table=baseline_df,biomarker_type="baseline")
-
-  expect_equal(nrow(out), 2)
-  expect_true(all(out$event %in% c(0, 1)))
-
-res<-run_multiple_cox_flexible(out,biomarkers=biomarkers,biomarker_type="baseline",time_col="time",event_col="event")
-print(res)
-outcome=res[[1]]
-term_info=res[[2]]
-output=calculate_FDR(outcome,term_info)
-
+test_that("baseline workflow agrees with a directly specified Cox model", {
+  set.seed(101)
+  n <- 180
+  followup <- rexp(n)
+  event <- rbinom(n, 1, .7)
+  metadata <- data.frame(subject = rep(seq_len(n), each = 2),
+    time = as.vector(rbind(0, followup)), event = as.vector(rbind(0, event)))
+  baseline <- data.frame(subject = seq_len(n), biomarker = rnorm(n))
+  out <- preprocess_data(metadata, "biomarker", event_col = "event",
+    time_col = "time", baseline_feature_table = baseline)
+  expect_equal(nrow(out), n)
+  res <- run_multiple_cox_flexible(out, "biomarker", "event", time_col = "time")
+  direct <- survival::coxph(survival::Surv(time, event) ~ biomarker_bl, data = out)
+  expect_equal(res[[1]]$coef, unname(coef(direct)))
+  expect_equal(res[[1]]$pvalue, unname(summary(direct)$coefficients[, "Pr(>|z|)"]))
+  expect_equal(res[[1]]$fit_status, "ok")
+  expect_true(is.na(res[[1]]$warning))
+  expect_equal(calculate_FDR(res[[1]])$FDR, res[[1]]$pvalue)
 })
-
-
-
-

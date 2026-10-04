@@ -36,12 +36,18 @@ construct_metadata(
 \item{biomarker_type}{One of "baseline", "time_varying",  or "baseline_change".}
 }
 \details{
+Output names must be nonempty and distinct, including the subject ID.
+Input column names may be reused safely for the output.
+
+Visit times must be finite, non-missing numeric values with unique subject-time pairs. Longitudinal modes reject first-visit events and require stop > start.
+
 \code{event_col} must contain non-missing numeric values coded as 0 or 1.
 Missing or invalid event statuses cause an error rather than being treated
 as censored observations.
 }
 \value{
-A data frame with one row per subject.
+A data frame with one row per subject for baseline mode, or one row
+per survival interval for longitudinal modes.
 }
 \description{
 For baseline survival analysis:

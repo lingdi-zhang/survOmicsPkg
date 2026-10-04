@@ -12,12 +12,13 @@
 #' @param time_varying_coefficients Whether to add a time-varying coefficient
 #'   for each baseline biomarker. Supported only when `biomarker_type` is
 #'   `"baseline"`.
-#' @param center_time Center time if needed
+#' @param center_time A finite numeric scalar when time-varying coefficients are enabled.
 #' @param baseline_suffix Baseline suffix.
 #' @param tv_suffix Time-varying suffix.
 #' @param change_suffix Change suffix.
 #' @param ties Tie handling method.
 #'
+#' @details Duplicate biomarker names cause an error before any models are fitted.
 #' @return A list containing a stacked result data frame and term information.
 #' @export
 
@@ -37,6 +38,11 @@ run_multiple_cox_flexible <- function(data,
                                       change_suffix = "_delta",
                                       ties = "efron") {
   biomarker_type <- match.arg(biomarker_type)
+  duplicate_biomarkers <- unique(biomarkers[duplicated(biomarkers)])
+  if (length(duplicate_biomarkers)) {
+    stop(paste0("Duplicate biomarker names: ",
+                paste(duplicate_biomarkers, collapse = ", "), "."), call. = FALSE)
+  }
   results <- dplyr::bind_rows(
     lapply(biomarkers, function(biomarker) {
       tryCatch(
@@ -68,6 +74,10 @@ run_multiple_cox_flexible <- function(data,
             pvalue = NA_real_,
             formula = NA_character_,
             effect_type = NA_character_,
+            fdr_group = NA_character_,
+            fit_status = "error",
+            effect_status = "not_estimable",
+            warning = NA_character_,
             error = conditionMessage(e),
             stringsAsFactors = FALSE
           )

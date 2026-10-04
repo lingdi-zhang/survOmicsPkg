@@ -6,7 +6,7 @@
 \usage{
 calculate_FDR(
   res,
-  terms,
+  terms = NULL,
   effect_col = "effect_type",
   term_col = "term",
   pvalue_col = "pvalue",
@@ -18,13 +18,14 @@ calculate_FDR(
 \arguments{
 \item{res}{output from multiple cox models}
 
-\item{terms}{term_info from term builders}
+\item{terms}{Optional term_info for legacy results without explicit FDR groups.}
 
 \item{effect_col}{effect_type column from res.}
 
 \item{term_col}{Term column from res.}
 
-\item{pvalue_col}{P value column from res}
+\item{pvalue_col}{Numeric p-value column from res; observed values must be
+finite and in [0, 1]. Missing values are allowed.}
 
 \item{main_term}{Main terms from term info}
 
@@ -33,8 +34,17 @@ calculate_FDR(
 \item{other_terms_vector}{Other_terms or covariate in the effect_type column}
 }
 \value{
-A data frame with FDR calculated per term
+A data frame with an FDR column and the original rows preserved.
 }
 \description{
 calculate FDRs
+}
+
+\details{
+Legacy grouping matches structural suffixes after unwrapping time coefficients or splitting interactions. Ambiguous matches cause an error; supply explicit \code{fdr_group} values.
+
+BH correction is applied within explicit \code{fdr_group} values.
+All rows are preserved; ungrouped, failed, and unreliable fits have missing
+FDRs and are excluded from the correction family. Estimable effects from
+partial fits remain eligible; not_estimable effects are excluded.
 }
